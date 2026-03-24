@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>出租车转型助手 - 自动问答</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* 头部 - 微信绿 */
+        .header {
+            background: #07c160;
+            color: white;
+            padding: 16px 20px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.25rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header small {
+            font-size: 0.7rem;
+            font-weight: normal;
+            opacity: 0.9;
+            display: block;
+            margin-top: 4px;
+        }
+        /* 聊天区域 */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f5f5f5;
+        }
+        /* 消息气泡 */
+        .message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-break: break-word;
+            position: relative;
+        }
+        .user-msg {
+            align-self: flex-end;
+            background: #07c160;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-msg {
+            align-self: flex-start;
+            background: white;
+            color: #111;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            border: 1px solid #e9e9e9;
+        }
+        /* 快捷按钮区 */
+        .quick-buttons {
+            background: white;
+            padding: 12px 12px;
+            border-top: 1px solid #e9e9e9;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .quick-btn {
+            background: #f0f0f0;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: #07c160;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .quick-btn:active {
+            background: #e0e0e0;
+            transform: scale(0.96);
+        }
+        /* 输入区 */
+        .input-area {
+            background: white;
+            padding: 10px 12px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #e9e9e9;
+            align-items: center;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #e2e2e2;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            outline: none;
+            background: #fefefe;
+            font-family: inherit;
+        }
+        .input-area input:focus {
+            border-color: #07c160;
+        }
+        .input-area button {
+            background: #07c160;
+            border: none;
+            color: white;
+            padding: 0 18px;
+            border-radius: 30px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.9rem;
+            height: 40px;
+        }
+        /* 联系我们区域 */
+        .contact-bar {
+            background: white;
+            padding: 12px 16px;
+            border-top: 1px solid #e9e9e9;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #333;
+        }
+        .contact-bar p {
+            margin: 4px 0;
+        }
+        .contact-bar a {
+            color: #07c160;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer-note {
+            font-size: 0.65rem;
+            text-align: center;
+            padding: 8px;
+            color: #999;
+            background: white;
+            border-top: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    🚖 出租车转型助手
+    <small>网约车转出租车 | 收入·政策·成本一键查</small>
+</div>
+
+<div class="chat-container" id="chatContainer">
+    <div class="message bot-msg">
+        您好！我是出租车转型助手，关于收入、规费、路权、合规等任何问题，您可以直接提问，或点击下方常见问题按钮～<br>
+        💡 试试输入“收入对比”、“规费”、“路权”等关键词。
+    </div>
+</div>
+
+<div class="quick-buttons" id="quickBtns"></div>
+
+<div class="input-area">
+    <input type="text" id="questionInput" placeholder="输入关键词，例如：一车双驾、违章处理..." autocomplete="off">
+    <button id="sendBtn">发送</button>
+</div>
+
+<!-- 联系我们区域 -->
+<div class="contact-bar">
+    <p>📞 咨询热线：</p>
+    <p>张老师：<a href="tel:13018306222">13018306222</a></p>
+    <p>秦老师：<a href="tel:13594880055">13594880055</a></p>
+</div>
+
+<div class="footer-note">
+    * 本助手基于常见FAQ自动回复，具体政策以公司最新文件为准
+</div>
+
+<script>
+    // ======================== 问答知识库 ========================
+    const qaData = [
+        {
+            keywords: ["收入", "对比", "赚钱", "月收入", "时薪", "多赚"],
+            answer: "📊 收入对比：网约车平台抽成23%-30%，且车损、保养自负；出租车采用“规费固定”，每天交完规费后流水全归自己。出租车采用网巡结合的方式，既可以接扬召乘客也可接网约单，同样劳动强度下，出租车月均收入普遍高出1500-3000元。我们可提供后台流水对比表参考。"
+        },
+        {
+            keywords: ["规费", "份子钱", "固定费用", "隐形扣费", "一口价"],
+            answer: "💰 规费即“份子钱”，包含车辆租金、维修基金、保险、GPS服务费等，每天固定金额，无额外抽成。跑够规费钱后，所有流水都是净赚，不用担心每单再被扣比例。"
+        },
+        {
+            keywords: ["一车双驾", "对班", "搭档", "分摊"],
+            answer: "👥 允许主副班/对班运营。您可以找搭档分摊规费，白班夜班轮换，车辆24小时运转，硬性成本直接减半。若暂无搭档，公司可协助配对。临时有急事也可寻找代班司机顶班。"
+        },
+        {
+            keywords: ["单量", "派单", "公平", "扬招", "网召"],
+            answer: "🚕 出租车是“扬招+网召”双渠道：路上招手乘客（尤其商务客、中老年、游客）出租车独享；同时也接入主流网约车平台，但平台对出租车仅收信息服务费（极低抽成或不抽成）。两腿走路，客源更多。"
+        },
+        {
+            keywords: ["路权", "特权", "公交道", "机场", "火车站", "优先"],
+            answer: "🛣️ 路权优势：特定路段可走公交专用道，高峰快人一步；机场/火车站设有出租车专用通道，随到随走，而网约车需远端停车场排队。大型活动、交通管制时出租车优先放行，营运效率更高。"
+        },
+        {
+            keywords: ["合规", "人证", "车证", "运管", "罚款", "查扣"],
+            answer: "✅ 若已持有《网络预约出租汽车驾驶员证》的驾驶员自动增加巡游出租车资格证，未持有的报考后均自动取得双证。合规成本更低，合法上路更省心。"
+        },
+        {
+            keywords: ["买车", "车辆维修", "保养", "修车", "车坏了"],
+            answer: "🔧 无需自己买车，公司提供合规营运车辆。常规维修、保养、年检、轮胎均由公司承担。您只需负责日常车容卫生及小故障及时报修。不用承担车辆折旧和大修费用。"
+        },
+        {
+            keywords: ["充电", "加油", "电费", "能耗"],
+            answer: "⚡ 目前主推新能源出租车，充电费用自理，但公司可提供协议充电站优惠价。另有换电/定点补电方案，节省找桩时间。"
+        },
+        {
+            keywords: ["事故", "违章", "保险", "理赔"],
+            answer: "🛡️ 公司统一购买营运车辆全额保险，事故理赔流程规范。违章罚款由当班驾驶员承担，公司协助处理。相比私车营运保险可能拒赔，出租车保障更稳妥。"
+        },
+        {
+            keywords: ["自由", "交车", "作息", "休息"],
+            answer: "⏰ 出租车有固定交接班，但反而帮助规律作息、避免疲劳驾驶。若您想要更大自由度，可选“一人一车”或“代班”模式，具体方案可面谈。"
+        },
+        {
+            keywords: ["考证", "资格证", "网约车证", "区域科目"],
+            answer: "📄 若已持有《网络预约出租汽车驾驶员证》的驾驶员自动增加巡游出租车资格证，未持有的报考后均自动取得双证。公司可协助报名及指导。"
+        },
+        {
+            keywords: ["政策", "支持", "优惠", "体验", "签约", "代班", "一人一车"],
+            answer: "🎁 当前批量转化政策：①“零风险体验”：交少量押金试开一个班，流水归自己；②“一人一车”模式：少量押金，租期灵活，一年、半年、三个月、一个月时间自定；③“代班”：少量押金，班次自选，想开就开，时间更自由。"
+        },
+        {
+            keywords: ["风险", "试开", "体验"],
+            answer: "🎯 可以申请“零风险体验”：交少量押金试开一个班，流水归自己，真实感受收入。"
+        },
+        {
+            keywords: ["抽成", "平台"],
+            answer: "📉 出租车通过网约平台接单仅收取少量信息服务费（约0.5-1元/单或极低比例），无抽成，路招收入100%归自己。"
+        }
+    ];
+
+    function getAnswer(question) {
+        if (!question.trim()) return "您还没输入问题呢，可以点击上方常见问题按钮或直接提问～";
+        const lowerQ = question.toLowerCase();
+        for (let item of qaData) {
+            for (let kw of item.keywords) {
+                if (lowerQ.includes(kw.toLowerCase())) {
+                    return item.answer;
+                }
+            }
+        }
+        return "❓ 暂时没识别到准确答案，您可以点击上方常见问题按钮获取标准回复，或直接联系工作人员（电话/微信）详细咨询。";
+    }
+
+    const chatContainer = document.getElementById('chatContainer');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function addMessage(content, isUser) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${isUser ? 'user-msg' : 'bot-msg'}`;
+        msgDiv.innerHTML = content.replace(/\n/g, '<br>');
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function handleQuestion(questionText) {
+        if (!questionText.trim()) return;
+        addMessage(questionText, true);
+        const answer = getAnswer(questionText);
+        addMessage(answer, false);
+        questionInput.value = '';
+    }
+
+    function initQuickButtons() {
+        const quickContainer = document.getElementById('quickBtns');
+        const quickList = [
+            "收入对比", "规费多少", "一车双驾", "路权优势",
+            "合规风险", "维修保养", "事故违章", "考证难吗",
+            "体验政策"
+        ];
+        quickList.forEach(q => {
+            const btn = document.createElement('button');
+            btn.innerText = q;
+            btn.className = 'quick-btn';
+            btn.addEventListener('click', () => handleQuestion(q));
+            quickContainer.appendChild(btn);
+        });
+    }
+
+    sendBtn.addEventListener('click', () => {
+        const val = questionInput.value.trim();
+        if (val) handleQuestion(val);
+    });
+    questionInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = questionInput.value.trim();
+            if (val) handleQuestion(val);
+        }
+    });
+
+    initQuickButtons();
+</script>
+</body>
+</html>
